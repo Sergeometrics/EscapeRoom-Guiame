@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROTOCOLO DE SEGURIDAD // ESCAPE ROOM</title>
+<style>
+  :root{
+    --bg:#0a0f0a;
+    --panel:#101a10;
+    --panel2:#0d140d;
+    --line:#1e3a1e;
+    --green:#39d353;
+    --green-dim:#1f7a33;
+    --green-faint:#123d1c;
+    --text:#b7e4b7;
+    --warn:#ffb454;
+    --err:#ff6b6b;
+    --mono:"Courier New", ui-monospace, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:15px;
+    line-height:1.55;
+    min-height:100vh;
+    display:flex;flex-direction:column;
+  }
+  /* subtle scanline effect */
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:999;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 1px, transparent 1px 3px);
+  }
+  header{
+    border-bottom:1px solid var(--line);
+    padding:12px 20px;
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
+    background:var(--panel2);
+  }
+  header .brand{color:var(--green);letter-spacing:2px;font-weight:bold;}
+  header .status{font-size:12px;color:var(--green-dim);letter-spacing:1px;}
+  main{flex:1;width:100%;max-width:980px;margin:0 auto;padding:24px 16px 60px;}
+  h1,h2,h3{color:var(--green);letter-spacing:1px;font-weight:bold;}
+  h1{font-size:22px;margin-bottom:14px;}
+  h2{font-size:19px;margin-bottom:12px;}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:20px;
+    margin-bottom:18px;
+  }
+  .bar{
+    height:10px;border:1px solid var(--line);border-radius:5px;overflow:hidden;margin:6px 0 2px;
+    background:var(--panel2);
+  }
+  .bar > div{height:100%;background:var(--green-dim);width:0%;transition:width .5s ease;}
+  .bar-label{font-size:12px;color:var(--green-dim);letter-spacing:1px;margin-bottom:16px;}
+  table{width:100%;border-collapse:collapse;margin:10px 0 18px;font-size:14px;}
+  th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top;}
+  th{background:var(--panel2);color:var(--green);letter-spacing:1px;}
+  td.role{color:var(--green);font-weight:bold;white-space:nowrap;}
+  label{display:block;color:var(--green);font-size:13px;letter-spacing:1px;margin:14px 0 5px;}
+  input[type=text],input[type=number]{
+    width:100%;
+    background:var(--bg);
+    border:1px solid var(--line);
+    color:var(--green);
+    font-family:var(--mono);
+    font-size:16px;
+    padding:10px 12px;
+    border-radius:4px;
+    outline:none;
+  }
+  input:focus{border-color:var(--green-dim);box-shadow:0 0 0 2px var(--green-faint);}
+  button{
+    font-family:var(--mono);
+    font-size:15px;
+    letter-spacing:1px;
+    background:transparent;
+    color:var(--green);
+    border:1px solid var(--green-dim);
+    padding:11px 20px;
+    border-radius:4px;
+    cursor:pointer;
+    transition:background .15s ease;
+  }
+  button:hover:not(:disabled){background:var(--green-faint);}
+  button:disabled{opacity:.35;cursor:not-allowed;}
+  button.primary{background:var(--green-faint);font-weight:bold;}
+  .btn-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;}
+  .code-line{
+    background:var(--bg);
+    border:1px solid var(--green-dim);
+    color:var(--green);
+    font-size:22px;
+    letter-spacing:10px;
+    text-align:center;
+    padding:18px 10px;
+    border-radius:4px;
+    margin:14px 0;
+    user-select:none;
+  }
+  .sys-msg{font-size:13px;color:var(--green-dim);margin:4px 0;}
+  .sys-msg::before{content:"> ";}
+  .order{
+    border-left:3px solid var(--green-dim);
+    padding:10px 14px;
+    margin:12px 0;
+    background:var(--panel2);
+  }
+  .order p{margin:7px 0;}
+  .order b{color:var(--green);}
+  .hint{color:var(--warn);font-size:13px;}
+  .err-msg{color:var(--err);font-size:14px;margin-top:8px;min-height:20px;}
+  .ok-msg{color:var(--green);font-size:14px;margin-top:8px;}
+  .sym-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:10px;margin-top:14px;}
+  .sym-grid button{font-size:24px;padding:16px 0;letter-spacing:0;}
+  .sym-grid button.sel{background:var(--green-faint);border-color:var(--green);box-shadow:0 0 0 2px var(--green-faint);}
+  .locked-tag{
+    display:inline-block;border:1px solid var(--warn);color:var(--warn);
+    font-size:11px;letter-spacing:2px;padding:3px 8px;border-radius:3px;margin-left:10px;vertical-align:middle;
+  }
+  /* Modal */
+  .modal-back{
+    position:fixed;inset:0;background:rgba(0,0,0,.72);
+    display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;
+  }
+  .modal-back.hidden{display:none;}
+  .modal{
+    background:var(--panel);border:1px solid var(--green-dim);border-radius:6px;
+    max-width:560px;width:100%;max-height:86vh;overflow:auto;padding:24px;
+  }
+  .modal h3{margin-bottom:12px;}
+  .modal table{font-size:13px;}
+  .modal td,.modal th{padding:6px 8px;text-align:center;}
+  .final-box{
+    border:1px solid var(--green);border-radius:6px;padding:26px;text-align:center;background:var(--panel2);
+  }
+  .final-box h2{font-size:24px;margin-bottom:10px;}
+  .blink{animation:blink 1.1s steps(2) infinite;}
+  @keyframes blink{50%{opacity:.25;}}
+  footer{border-top:1px solid var(--line);padding:10px 20px;font-size:11px;color:var(--green-dim);letter-spacing:1px;background:var(--panel2);}
+  @media (max-width:640px){
+    .code-line{font-size:17px;letter-spacing:6px;}
+    body{font-size:14px;}
+    th,td{display:block;width:100%;}
+    tr{border:1px solid var(--line);margin-bottom:8px;display:block;}
+  }
+  @media print{
+    body::after{display:none;}
+    body{background:#fff;color:#000;font-size:12px;}
+    .modal{border:none;max-height:none;overflow:visible;}
+    .modal h3,.modal td,.modal th{color:#000;border-color:#666;}
+    .btn-row,header,footer,#print-note{display:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">SERVIDOR CENTRAL // AUDITORIA-07</div>
+  <div class="status" id="hdr-status">SESION: SIN AUTENTICAR</div>
+</header>
+
+<main id="app">
+
+  <!-- ===================== PANTALLA 1: ASIGNACION ===================== -->
+  <section id="screen-start">
+    <div class="panel">
+      <h1>PROTOCOLO DE ASIGNACION DE ROLES</h1>
+      <p class="sys-msg">Sistema de auditoria de seguridad. Toda comunicacion queda registrada.</p>
+      <p class="sys-msg">El protocolo exige la colaboracion de 4 agentes. Ningun nivel puede superarse en solitario.</p>
+
+      <table aria-label="Matriz de responsabilidades">
+        <thead>
+          <tr><th>ROL</th><th>RESPONSABILIDAD INQUEBRANTABLE</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="role">CRIPTOGRAFO</td><td>Responsable de la traduccion de claves impresas. Unico autorizado para leer e interpretar la tabla de equivalencias criptograficas.</td></tr>
+          <tr><td class="role">MATEMATICO</td><td>Unico autorizado para usar papel y lapiz en calculos. Ningun otro agente puede realizar operaciones numericas por escrito.</td></tr>
+          <tr><td class="role">AGENTE LOGISTICO</td><td>Encargado de recolectar y manipular objetos fisicos en el entorno. Ningun otro agente puede tocar el material de campo.</td></tr>
+          <tr><td class="role">OPERADOR</td><td>Unico enlace con la terminal (teclado y pantalla). Los demas agentes deben comunicarle sus datos; nunca tocaran el sistema.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>REGISTRO DE AGENTES</h2>
+      <label for="in-cripto">IDENTIFICACION // CRIPTOGRAFO</label>
+      <input type="text" id="in-cripto" maxlength="24" autocomplete="off" placeholder="Nombre o alias del agente">
+      <label for="in-mate">IDENTIFICACION // MATEMATICO</label>
+      <input type="text" id="in-mate" maxlength="24" autocomplete="off" placeholder="Nombre o alias del agente">
+      <label for="in-logi">IDENTIFICACION // AGENTE LOGISTICO</label>
+      <input type="text" id="in-logi" maxlength="24" autocomplete="off" placeholder="Nombre o alias del agente">
+      <label for="in-oper">IDENTIFICACION // OPERADOR</label>
+      <input type="text" id="in-oper" maxlength="24" autocomplete="off" placeholder="Nombre o alias del agente">
+
+      <div class="btn-row">
+        <button id="btn-start" class="primary" disabled>INICIAR PROTOCOLO</button>
+        <button id="btn-table-open">TABLA CRIPTOGRAFICA (CRIPTOGRAFO)</button>
+      </div>
+      <p class="sys-msg" id="start-hint">El boton de inicio permanece bloqueado hasta completar las 4 identificaciones.</p>
+    </div>
+  </section>
+
+  <!-- ===================== PANTALLA 2: NIVEL 1 ===================== -->
+  <section id="screen-n1" style="display:none;">
+    <div class="panel">
+      <h2>NIVEL 1: BRECHA DE SEGURIDAD <span class="locked-tag">ACCESO RESTRINGIDO</span></h2>
+      <div class="bar"><div id="bar1"></div></div>
+      <div class="bar-label">PROGRESO DEL PROTOCOLO: 1 / 3</div>
+
+      <p class="sys-msg">Interceptada transmision cifrada. Se requiere contrasena numerica de autorizacion.</p>
+      <div class="code-line" id="n1-sequence">{ * + { &nbsp;&nbsp; } { ] &nbsp;&nbsp; ~ ] % ^</div>
+
+      <div class="order">
+        <p><b id="n1-cripto">[CRIPTOGRAFO]</b>: Traduce la secuencia impresa utilizando la tabla de equivalencias.</p>
+        <p><b id="n1-mate">[MATEMATICO]</b>: Resuelve la operacion indicada por la traduccion.</p>
+        <p><b id="n1-logi">[AGENTE LOGISTICO]</b>: Recolecta la cantidad exacta de lapices fisicos correspondiente al resultado y agrupalos en montones de 6.</p>
+        <p><b id="n1-oper">[OPERADOR]</b>: Ingresa en el sistema la cantidad final de montones formados.</p>
+      </div>
+
+      <label for="n1-pass">CONTRASENA NUMERICA DE AUTORIZACION</label>
+      <input type="text" id="n1-pass" inputmode="numeric" autocomplete="off" placeholder="Cantidad de montones">
+
+      <div class="btn-row">
+        <button id="btn-n1-submit" class="primary">VALIDAR NIVEL 1</button>
+        <button id="btn-table-open-1">TABLA CRIPTOGRAFICA (CRIPTOGRAFO)</button>
+      </div>
+      <p class="err-msg" id="n1-err"></p>
+    </div>
+  </section>
+
+  <!-- ===================== PANTALLA 3: NIVEL 2 ===================== -->
+  <section id="screen-n2" style="display:none;">
+    <div class="panel">
+      <h2>NIVEL 2: AUDITORIA DE INVENTARIO <span class="locked-tag">ACCESO RESTRINGIDO</span></h2>
+      <div class="bar"><div id="bar2"></div></div>
+      <div class="bar-label">PROGRESO DEL PROTOCOLO: 2 / 3</div>
+
+      <p class="sys-msg">Objetivo fisico cifrado detectado. Se requiere verificacion de inventario en dos fases.</p>
+      <div class="code-line" id="n2-sequence">* + @ [ | % ~ @ ^</div>
+
+      <div class="order">
+        <p><b id="n2-cripto">[CRIPTOGRAFO]</b>: Descifra el objetivo fisico de la auditoria.</p>
+        <p><b id="n2-logi">[AGENTE LOGISTICO]</b>: Recolecta las prendas objetivo del equipo y cuenta el total de bolsillos.</p>
+        <p><b id="n2-mate">[MATEMATICO]</b>: Multiplica el total de bolsillos por 10.</p>
+        <p><b id="n2-oper">[OPERADOR]</b>: Introduce los datos en el sistema en el orden indicado.</p>
+      </div>
+
+      <label for="n2-pockets">FASE 1 // NUMERO DE BOLSILLOS CONTADOS</label>
+      <input type="number" id="n2-pockets" inputmode="numeric" min="0" autocomplete="off" placeholder="Informado por Agente Logistico">
+      <div class="btn-row"><button id="btn-n2-fase1">REGISTRAR BOLSILLOS</button></div>
+
+      <div id="n2-fase2" style="display:none;">
+        <label for="n2-code">FASE 2 // CODIGO DE VERIFICACION FINAL (TOTAL x 10)</label>
+        <input type="text" id="n2-code" inputmode="numeric" autocomplete="off" placeholder="Informado por Matematico">
+        <div class="btn-row"><button id="btn-n2-submit" class="primary">VALIDAR NIVEL 2</button></div>
+      </div>
+      <p class="err-msg" id="n2-err"></p>
+    </div>
+  </section>
+
+  <!-- ===================== PANTALLA 4: NIVEL 3 ===================== -->
+  <section id="screen-n3" style="display:none;">
+    <div class="panel">
+      <h2>NIVEL 3: EXTRACCION DE PROTOCOLO <span class="locked-tag">ACCESO RESTRINGIDO</span></h2>
+      <div class="bar"><div id="bar3"></div></div>
+      <div class="bar-label">PROGRESO DEL PROTOCOLO: 3 / 3</div>
+
+      <p class="sys-msg">Clave final requerida: un simbolo criptografico basado en inventario fisico.</p>
+
+      <div class="order">
+        <p><b id="n3-logi">[AGENTE LOGISTICO]</b>: Apila todos los cuadernos del equipo sobre la mesa.</p>
+        <p><b id="n3-mate">[MATEMATICO]</b>: Cuenta el total de cuadernos y multiplicalo por 3.</p>
+        <p><b id="n3-cripto">[CRIPTOGRAFO]</b>: Ubica en la tabla la letra correspondiente a ese valor numerico (A=1, B=2, etc.) y codificalo al simbolo correspondiente.</p>
+        <p><b id="n3-oper">[OPERADOR]</b>: Selecciona el simbolo correcto en el panel de control.</p>
+      </div>
+
+      <p class="sys-msg">PANEL DE CONTROL // SELECCIONE UN SIMBOLO</p>
+      <div class="sym-grid" id="n3-grid"></div>
+      <div class="btn-row">
+        <button id="btn-n3-submit" class="primary" disabled>CONFIRMAR CLAVE FINAL</button>
+        <button id="btn-table-open-3">TABLA CRIPTOGRAFICA (CRIPTOGRAFO)</button>
+      </div>
+      <p class="err-msg" id="n3-err"></p>
+    </div>
+  </section>
+
+  <!-- ===================== PANTALLA 5: FINAL ===================== -->
+  <section id="screen-final" style="display:none;">
+    <div class="panel">
+      <div class="final-box">
+        <h2>ACCESO CONCEDIDO</h2>
+        <p class="blink" style="color:var(--green);letter-spacing:3px;">DATOS EXTRAIDOS CON EXITO</p>
+        <p style="margin-top:16px;">El equipo supero los 3 niveles de seguridad del Servidor Central.</p>
+        <p>Protocolo AUDITORIA-07 cerrado. Toda la informacion ha sido desclasificada.</p>
+        <div class="btn-row" style="justify-content:center;">
+          <button id="btn-restart" class="primary">REINICIAR PROTOCOLO</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>NODO SEGURO // CANAL CIFRADO // SOLO USO EDUCATIVO // GRADO 3</footer>
+
+<!-- ===================== MODAL TABLA CRIPTOGRAFICA ===================== -->
+<div class="modal-back hidden" id="modal-table">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Tabla criptografica">
+    <h3>TABLA DE EQUIVALENCIAS CRIPTOGRAFICAS</h3>
+    <p class="sys-msg" id="print-note">Documento exclusivo para el Criptografo. Use el boton Imprimir para obtener copia fisica.</p>
+    <table id="crypto-table"></table>
+    <div class="btn-row">
+      <button id="btn-print">IMPRIMIR TABLA</button>
+      <button id="btn-table-close">CERRAR</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- TABLA CRIPTOGRAFICA (A=@ ... Z=` ) ---------- */
+  var CRYPTO = {
+    "A":"@","B":"#","C":"*","D":"&","E":"%","F":"$","G":"!","H":"+","I":"(",
+    "J":")","K":"/","L":"<","M":">","N":"?","O":"{","P":"}","Q":"[","R":"]",
+    "S":"^","T":"~","U":"|","V":";","W":":","X":"\"","Y":"'","Z":"`"
+  };
+  var LETTER_OF = {};
+  Object.keys(CRYPTO).forEach(function(l){ LETTER_OF[CRYPTO[l]] = l; });
+
+  var agents = { cripto:"", mate:"", logi:"", oper:"" };
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* ---------- Construir tabla en el modal ---------- */
+  (function buildTable(){
+    var rows = "";
+    for (var i=0; i<13; i++){
+      var l1 = String.fromCharCode(65+i);
+      var l2 = String.fromCharCode(78+i);
+      rows += "<tr><th>"+l1+"</th><td>"+CRYPTO[l1]+"</td><th>"+l2+"</th><td>"+CRYPTO[l2]+"</td></tr>";
+    }
+    $("crypto-table").innerHTML =
+      "<thead><tr><th>LETRA</th><th>SIMBOLO</th><th>LETRA</th><th>SIMBOLO</th></tr></thead><tbody>"+rows+"</tbody>";
+  })();
+
+  function openModal(){ $("modal-table").classList.remove("hidden"); }
+  function closeModal(){ $("modal-table").classList.add("hidden"); }
+  ["btn-table-open","btn-table-open-1","btn-table-open-3"].forEach(function(id){
+    $(id).addEventListener("click", openModal);
+  });
+  $("btn-table-close").addEventListener("click", closeModal);
+  $("btn-print").addEventListener("click", function(){ window.print(); });
+  $("modal-table").addEventListener("click", function(e){
+    if (e.target === $("modal-table")) closeModal();
+  });
+
+  /* ---------- Navegacion entre pantallas ---------- */
+  function show(id){
+    ["screen-start","screen-n1","screen-n2","screen-n3","screen-final"].forEach(function(s){
+      $(s).style.display = (s === id) ? "block" : "none";
+    });
+    window.scrollTo(0,0);
+  }
+  function setStatus(t){ $("hdr-status").textContent = t; }
+  function fillNames(){
+    $("n1-cripto").textContent = agents.cripto.toUpperCase();
+    $("n1-mate").textContent    = agents.mate.toUpperCase();
+    $("n1-logi").textContent    = agents.logi.toUpperCase();
+    $("n1-oper").textContent    = agents.oper.toUpperCase();
+    $("n2-cripto").textContent = agents.cripto.toUpperCase();
+    $("n2-mate").textContent   = agents.mate.toUpperCase();
+    $("n2-logi").textContent   = agents.logi.toUpperCase();
+    $("n2-oper").textContent   = agents.oper.toUpperCase();
+    $("n3-cripto").textContent = agents.cripto.toUpperCase();
+    $("n3-mate").textContent   = agents.mate.toUpperCase();
+    $("n3-logi").textContent   = agents.logi.toUpperCase();
+  }
+
+  /* ---------- Pantalla de inicio ---------- */
+  var startInputs = ["in-cripto","in-mate","in-logi","in-oper"];
+  function checkStart(){
+    var ok = startInputs.every(function(id){
+      return $(id).value.trim().length >= 2;
+    });
+    $("btn-start").disabled = !ok;
+  }
+  startInputs.forEach(function(id){
+    $(id).addEventListener("input", checkStart);
+  });
+  checkStart();
+
+  $("btn-start").addEventListener("click", function(){
+    if (this.disabled) return;
+    agents.cripto = $("in-cripto").value.trim();
+    agents.mate   = $("in-mate").value.trim();
+    agents.logi   = $("in-logi").value.trim();
+    agents.oper   = $("in-oper").value.trim();
+    fillNames();
+    setStatus("SESION: "+agents.oper.toUpperCase()+" // NIVEL 1 DE 3");
+    $("bar1").style.width = "33%";
+    show("screen-n1");
+  });
+
+  /* ---------- Nivel 1: { * + { } { ] ~ ] % ^  =  OCHO POR TRES -> 8x3=24 -> 24/6=4 ---------- */
+  $("btn-n1-submit").addEventListener("click", function(){
+    var v = $("n1-pass").value.trim();
+    if (v === "4"){
+      $("n1-err").textContent = "";
+      $("n1-err").className = "ok-msg";
+      $("n1-err").textContent = "Nivel 1 validado. Acceso al siguiente sector concedido.";
+      setStatus("SESION: "+agents.oper.toUpperCase()+" // NIVEL 2 DE 3");
+      $("bar2").style.width = "66%";
+      setTimeout(function(){ show("screen-n2"); }, 900);
+    } else {
+      $("n1-err").className = "err-msg";
+      $("n1-err").textContent = "CODIGO RECHAZADO. Verifique los montones de 6 con el Agente Logistico.";
+    }
+  });
+  $("n1-pass").addEventListener("keydown", function(e){
+    if (e.key === "Enter") $("btn-n1-submit").click();
+  });
+
+  /* ---------- Nivel 2: * + @ [ | % ~ @ ^ = CHAQUETAS; fase1 bolsillos, fase2 x10 ---------- */
+  var n2Pockets = null;
+  $("btn-n2-fase1").addEventListener("click", function(){
+    var v = $("n2-pockets").value.trim();
+    if (v === "" || isNaN(Number(v)) || Number(v) < 0){
+      $("n2-err").className = "err-msg";
+      $("n2-err").textContent = "ENTRADA INVALIDA. El Operador debe registrar un numero de bolsillos mayor o igual a cero.";
+      return;
+    }
+    n2Pockets = Number(v);
+    $("n2-err").textContent = "";
+    $("n2-err").className = "ok-msg";
+    $("n2-err").textContent = "Fase 1 registrada: "+n2Pockets+" bolsillos. El Matematico debe calcular total x 10.";
+    $("n2-fase2").style.display = "block";
+    $("btn-n2-fase1").disabled = true;
+    $("n2-pockets").disabled = true;
+    $("n2-code").focus();
+  });
+  $("btn-n2-submit").addEventListener("click", function(){
+    var v = $("n2-code").value.trim();
+    if (n2Pockets !== null && v === String(n2Pockets * 10)){
+      $("n2-err").className = "ok-msg";
+      $("n2-err").textContent = "Auditoria validada. Acceso al sector final concedido.";
+      setStatus("SESION: "+agents.oper.toUpperCase()+" // NIVEL 3 DE 3");
+      $("bar3").style.width = "100%";
+      setTimeout(function(){ show("screen-n3"); }, 900);
+    } else {
+      $("n2-err").className = "err-msg";
+      $("n2-err").textContent = "VERIFICACION RECHAZADA. El Matematico debe recalcular bolsillos x 10.";
+    }
+  });
+  $("n2-code").addEventListener("keydown", function(e){
+    if (e.key === "Enter") $("btn-n2-submit").click();
+  });
+
+  /* ---------- Nivel 3: 4 cuadernos x 3 = 12 = L -> simbolo "<" ---------- */
+  var N3_OPTIONS = ["@","*","#","&","%","<","(",")","!",">"];
+  var n3Selected = null;
+  (function buildGrid(){
+    var grid = $("n3-grid");
+    N3_OPTIONS.forEach(function(sym){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = sym;
+      b.setAttribute("aria-label","Simbolo "+sym);
+      b.addEventListener("click", function(){
+        n3Selected = sym;
+        grid.querySelectorAll("button").forEach(function(x){ x.classList.remove("sel"); });
+        b.classList.add("sel");
+        $("btn-n3-submit").disabled = false;
+      });
+      grid.appendChild(b);
+    });
+  })();
+
+  $("btn-n3-submit").addEventListener("click", function(){
+    if (n3Selected === null) return;
+    if (LETTER_OF[n3Selected] === "L"){   /* 4 x 3 = 12 = L */
+      $("n3-err").className = "ok-msg";
+      $("n3-err").textContent = "Clave final aceptada. Procediendo a extraccion.";
+      setStatus("SESION: PROTOCOLO COMPLETADO");
+      setTimeout(function(){ show("screen-final"); }, 900);
+    } else {
+      $("n3-err").className = "err-msg";
+      $("n3-err").textContent = "CLAVE RECHAZADA. Confirme el conteo de cuadernos y la equivalencia en la tabla.";
+    }
+  });
+
+  /* ---------- Reinicio ---------- */
+  $("btn-restart").addEventListener("click", function(){
+    agents = { cripto:"", mate:"", logi:"", oper:"" };
+    startInputs.forEach(function(id){ $(id).value = ""; });
+    checkStart();
+    $("n1-pass").value = "";
+    $("n1-err").textContent = ""; $("n1-err").className = "err-msg";
+    $("n2-pockets").value = ""; $("n2-code").value = "";
+    $("n2-pockets").disabled = false; $("btn-n2-fase1").disabled = false;
+    $("n2-fase2").style.display = "none";
+    $("n2-err").textContent = ""; $("n2-err").className = "err-msg";
+    n2Pockets = null;
+    n3Selected = null;
+    $("n3-grid").querySelectorAll("button").forEach(function(x){ x.classList.remove("sel"); });
+    $("btn-n3-submit").disabled = true;
+    $("n3-err").textContent = ""; $("n3-err").className = "err-msg";
+    ["bar1","bar2","bar3"].forEach(function(id){ $(id).style.width = "0%"; });
+    setStatus("SESION: SIN AUTENTICAR");
+    show("screen-start");
+  });
+
+})();
+</script>
+</body>
+</html>
